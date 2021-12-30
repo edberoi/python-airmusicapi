@@ -5,7 +5,7 @@ from airmusicapi import airmusic
 
 
 IPADDR = '192.168.2.147'
-TIMEOUT = 5 # in seconds
+TIMEOUT = 5  # in seconds
 
 
 def print_list(l):
@@ -22,6 +22,7 @@ am.log_level = logging.DEBUG
 am.init(language="en")
 
 print('Device Name: %s' % am.friendly_name)
+print(json.dumps(am.get_systeminfo(), indent=2))
 
 hkl = am.get_hotkeylist()
 print("Hotkeylist: {} out of {}:".format(hkl['item_total'], hkl['item_return']))
@@ -35,10 +36,9 @@ am.enter_menu(75)
 print_list(am.get_menu(menu_id=75))
 am.play_station('75_7')
 
-
 # Select favourite station #1 from the hotkeylist and update the station status periodicly.
-#print("Going to play the radio station at hotkey 1. Press CTRL-C to interrupt.")
-#am.play_hotkey(1)
+# print("Going to play the radio station at hotkey 1. Press CTRL-C to interrupt.")
+# am.play_hotkey(1)
 print("{:3} {}".format('Vol', 'Status'))
 try:
     while True:

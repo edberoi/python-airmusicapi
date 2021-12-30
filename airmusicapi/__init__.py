@@ -41,6 +41,7 @@ class airmusic(object):
     KEY_BUTTON8 = 25
     KEY_BUTTON9 = 26
     KEY_MODE = 28  # Toggle between the device modes: FM, IRadio, USB, AUX, UPNP, ...
+    KEY_STOP = 30  # Stop playing a song / station.
     KEY_NEXT = 31  # Go to the next item.
     KEY_PREV = 32  # Go to the next item.
     KEY_USB = 36  # Swith to USB mode.
@@ -125,10 +126,11 @@ class airmusic(object):
         if self.logger:
             self.logger.debug("Response: headers={}, text=\"{}\"".format(result.headers, result.text))
         if result.ok:
+            if 'html' in result.text:
+                return dict(result='OK')
             return xmltodict.parse(result.text)  # Will fail if a tag contains an &, like combining two artist names.
-        else:
-            logging.error("Error in request: {} : {}".format(r.status_code, r.reason))
-            return None
+        logging.error("Error in request: {} : {}".format(result.status_code, result.reason))
+        return None
 
     # ========================================================================
     # Properties
@@ -149,8 +151,9 @@ class airmusic(object):
         Assign a human readable name to the device.
         @param value the device name (string).
         """
-        # <root><device><friendlyName>...</friendlyName></device></root>
-        return resp['root']['device']['friendlyName']
+        resp = self.send_cmd('set_dname', params=dict(name=value))
+        # <result>OK</result>
+        return resp
 
     friendly_name = property(get_friendly_name, set_friendly_name)
 
@@ -169,7 +172,6 @@ class airmusic(object):
         @param loglevel specifies the level at which output to the logger will be activated.
         """
         self.logger.setLevel(loglevel)
-
 
     log_level = property(get_log_level, set_log_level)
 
@@ -210,6 +212,21 @@ class airmusic(object):
         self.sw_update = result['SWUpdate']
         return result
 
+    def get_background_play_status(self):
+        """!
+        Get the status info of the song / station playing.
+        A song or Station can play while the user is navigating in the menus.
+        The state of what is playing can be retrieved.
+        Returned tags are:
+         - sid : ?
+         - playtime_left : In hh:mm:ss format.
+         - vol : the current volume level
+         - mute : the current mute state (0=Unmuted, 1=Muted)
+        @return the play status.
+        """
+        resp = self.send_cmd('background_play_status')
+        return resp['result']
+
     def get_hotkeylist(self):
         """!
         Fetch the list of hotkeys.
@@ -231,7 +248,6 @@ class airmusic(object):
         if 'menu' in resp:
             return resp['menu']
         if 'result' in resp:
-            result
             return dict(result=resp['result']['rt'])
         return None
 
@@ -250,7 +266,7 @@ class airmusic(object):
             return new_id == menu_id
         return None
 
-    def get_menu(self, cmd='list', menu_id=1, start=1, count=15):
+    def get_menu(self, menu_id=1, start=1, count=15):
         """!
         Fetch the list of items in a given menu.
         Menus in the device have a unique menu-ID. The contents of a menu can be retrieved
@@ -267,6 +283,9 @@ class airmusic(object):
          - name (The menu name, if used).
         If retrieving the menu failed, a single dict is returned holding the error reason.
         If no menu was returned by the device, nor an error indication, the function returns None.
+        @param menu_id is the unique ID of the menu to retrieve.
+        @param start specifies the start index of the list to retrieve.
+        @param count specifies the number of entries to fecth.
         @return On success, a dict of menu entries; On error, a dict {'error': 'reason'}; else None
         """
         resp = self.send_cmd('list', params=dict(id=menu_id, start=start, count=count))
@@ -297,8 +316,28 @@ class airmusic(object):
         resp = self.send_cmd('playinfo')
         if 'vol' in resp['result']:
             return resp['result']
-        else:
-            return dict(result=resp['result'])
+        return dict(result=resp['result'])
+
+    def get_systeminfo(self):
+        """!
+        Fetch firmware and network info.
+        The following tags will be returned:
+         - SW_Ver : The firmware identification string
+         - wifi_info : Contains several tags related to the wifi connection
+             - status : the Wifi connection status
+             - MAC : the MAC address of the wifi interface
+             - SSID : the name of the AP the device is connected to
+             - Signal : the wifi signal level
+             - Encryption : indicates the encryption type used
+             - IP : the device's IP-address
+             - Subnet : the applied subnet mask for IP-adresses
+             - Gateway : the default router (gateway)
+             - DNS1 : the IP-address of the first Domain Name Server
+             - DNS2 : the IP-address of the second DNS
+        @return a dict holding the system info.
+        """
+        resp = self.send_cmd('GetSystemInfo')
+        return resp['menu']
 
     def play_hotkey(self, keynr):
         """!
@@ -348,6 +387,59 @@ class airmusic(object):
         """
         # <result><rt>OK</rt></result>
         resp = self.send_cmd('Sendkey', params=dict(key=keynr))
+        return resp['result']
+
+    def get_mute(self):
+        """!
+        Fetch the mute state.
+        @return True if the device is muted, False if not muted.
+        """
+        resp = self.get_background_play_status()
+        return True if resp['mute'] == '1' else False
+
+    def set_mute(self, value):
+        """!
+        Specify mute on or off.
+        The device can be muted or unmuted, while not changing the volume level set.
+        It returns the tags:
+         - vol : to indicate the current volume level.
+         - mute : the mute flag; 0=Off 1=On.
+        @param value True to mute the device, False to unmute.
+        @return a dict holding vol and mute.
+        """
+        resp = self.send_cmd('setvol', params=dict(mute=1 if value else 0))
+        return resp['result']
+
+    def get_volume(self):
+        """!
+        Fetch the volume level.
+        @return the volume level (0 .. 15).
+        """
+        resp = self.get_background_play_status()
+        return resp['vol']
+
+    def raw(self, value):
+        """!
+        Send a raw command.
+        This API handles several commands and their responses. In case a command is not yet
+        implemented, this raw function can be used to send it directly without any handling.
+        @param value is the command (and params, if any) to be send.
+        @return the reply as-is.
+        """
+        resp = self.send_cmd(value)
+        return resp
+
+    def set_volume(self, value):
+        """!
+        Specify the volume level.
+        The volume of the device can be specified in 16 steps, 0-15.
+        It returns the tags:
+         - vol : to indicate the current volume level.
+         - mute : the mute flag; 0=Off 1=On.
+        @param value is the volume level to set (0 .. 15).
+        @return a dict holding vol and mute.
+        """
+        resp = self.send_cmd('setvol', params=dict(vol=value))
         return resp['result']
 
     def stop(self):
