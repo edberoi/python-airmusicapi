@@ -227,6 +227,45 @@ class airmusic(object):
         resp = self.send_cmd('background_play_status')
         return resp['result']
 
+    def get_FM_favourites(self):
+        """!
+        Get the FM favourites.
+        A few FM stations can be marked as FM favourites. The list of FM favourites is returned
+        with this function.
+        Returned are the following tags:
+         - item_total (The total number of items in the list, i.e. 5),
+         - item_return (The amount of items in the list),
+         - item (repeated (5) times):
+        Each item has the following tags:
+         - id (Unique ID that can be used to play this station),
+         - Freq (The FM station fequency, eg. 87.50).
+        @return On success, a dict of favourite FM stations; On error, a dict {'error': 'reason'}; else None
+        """
+        resp = self.send_cmd('GetFMFAVlist')
+        if 'menu' in resp:
+            return resp['menu']
+        if 'result' in resp:
+            return dict(result=resp['result']['rt'])
+        return None
+
+    def get_FM_status(self):
+        """!
+        Get the FM status info.
+        The FM status can be retrieved in all modes, but it will contain relevant values only
+        if the device is in FM mode.
+        Returned tags are:
+         - vol : the current volume level.
+         - mute : the current mute state (0=Unmuted, 1=Muted).
+         - Signal : the signal reception level of the FM station.
+         - Sound : indicates MONO or STEREO.
+         - Search : is TRUE while FM scanning is active, FALSE if no scanning is performed.
+         - Freq : indicates the actual FM frequency, eg. 87.50.
+         - RDS : If available, shows RDS info.
+        @return the FM status.
+        """
+        resp = self.send_cmd('GetFMStatus')
+        return resp['result']
+
     def get_hotkeylist(self):
         """!
         Fetch the list of hotkeys.
@@ -338,6 +377,20 @@ class airmusic(object):
         """
         resp = self.send_cmd('GetSystemInfo')
         return resp['menu']
+
+    def play_fm_favourite(self, favnr):
+        """!
+        Start playing an FM station from the FM favourites list.
+        The FM favourites list can be retrieved with get_FM_favourites().
+        This list shows the stored FM stations, each with their own id.
+        On return:
+         - the status text, eg 'OK' or 'FAIL'.
+        @param favnr is the id of the FM station in the list, value range: 1 - ?.
+        @return The status text.
+        """
+        # <result>OK</result>
+        resp = self.send_cmd('GotoFMfav', params=dict(fav=favnr))
+        return resp['result']
 
     def play_hotkey(self, keynr):
         """!
