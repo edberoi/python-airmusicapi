@@ -53,7 +53,7 @@ class airmusic(object):
     KEY_NEXTFAV = 112  # Go to the next station in the favourites list.
 
     def __init__(self, device_address, timeout=5):
-        """
+        """!
         Constructor of the Airmusic API class.
         @param device_address holds the device IP-address or resolvable name.
         @param timeout determines the maximum amount of seconds to wait for a reply from the device.
@@ -109,9 +109,13 @@ class airmusic(object):
         Most commands will be sent to port 80, but some might require port 8080.
         There are commands that have no parameters. In that case the params parameter can be omitted.
         In case a command requires additional parameters, these must be passed as a dict().
+        For example, the list command has the following syntax:
+          http://.../list?id=1&start=1&count=15
+        In that case, parameter cmd will be set to 'list', and parameter params will be set to
+        the dict(id=1, start=1, count=15).
         @param cmd is the command to send.
         @param port is the http port to send the command to. Default is 80.
-        @param params holds the command parameters.
+        @param params holds the command parameters (as a dict).
         """
         # The parameters for the command, if any, are received in a dict() structure.
         if type(params) is not dict:
@@ -126,9 +130,9 @@ class airmusic(object):
         if self.logger:
             self.logger.debug("Response: headers={}, text=\"{}\"".format(result.headers, result.text))
         if result.ok:
-            if 'html' in result.text:
+            if 'html' in result.text:  # Some commands, like set_dname, return an HTML page.
                 return dict(result='OK')
-            return xmltodict.parse(result.text)  # Will fail if a tag contains an &, like combining two artist names.
+            return xmltodict.parse(result.text)  # Will fail if a tag contains an &, eg combining two artist names.
         logging.error("Error in request: {} : {}".format(result.status_code, result.reason))
         return None
 
@@ -140,6 +144,7 @@ class airmusic(object):
     def get_friendly_name(self):
         """!
         Return the human readable name of the device.
+        @note Instead of this function, use the property friendly_name.
         @return the device name (string).
         """
         resp = self.send_cmd('irdevice.xml')
@@ -149,6 +154,7 @@ class airmusic(object):
     def set_friendly_name(self, value):
         """!
         Assign a human readable name to the device.
+        @note Instead of this function, use the property friendly_name.
         @param value the device name (string).
         """
         resp = self.send_cmd('set_dname', params=dict(name=value))
@@ -161,6 +167,7 @@ class airmusic(object):
     def get_log_level(self, loglevel):
         """!
         Get the actual logging level. See the logging library for level values.
+        @note Instead of this function, use the property log_level.
         @return the current log level.
         """
         self.logger.setLevel(loglevel)
@@ -169,6 +176,7 @@ class airmusic(object):
         """!
         Change the logging level. See the logging library for level values.
         Default is logging.INFO level.
+        @note Instead of this function, use the property log_level.
         @param loglevel specifies the level at which output to the logger will be activated.
         """
         self.logger.setLevel(loglevel)
@@ -179,6 +187,7 @@ class airmusic(object):
     def get_mute(self):
         """!
         Fetch the mute state.
+        @note Instead of this function, use the property mute.
         @return True if the device is muted, False if not muted.
         """
         resp = self.get_background_play_status()
@@ -191,6 +200,7 @@ class airmusic(object):
         It returns the tags:
          - vol : to indicate the current volume level.
          - mute : the mute flag; 0=Off 1=On.
+        @note Instead of this function, use the property mute.
         @param value True to mute the device, False to unmute.
         @return a dict holding vol and mute.
         """
@@ -203,6 +213,7 @@ class airmusic(object):
     def get_volume(self):
         """!
         Fetch the volume level.
+        @note Instead of this function, use the property volume.
         @return the volume level (0 .. 15).
         """
         resp = self.get_background_play_status()
@@ -215,6 +226,7 @@ class airmusic(object):
         It returns the tags:
          - vol : to indicate the current volume level.
          - mute : the mute flag; 0=Off 1=On.
+        @note Instead of this function, use the property volume.
         @param value is the volume level to set (0 .. 15).
         @return a dict holding vol and mute.
         """
@@ -382,6 +394,7 @@ class airmusic(object):
         in one go or in chunks with the get_menu() function. To enter a menu entry
         (i.e. an menu entry that is marked as status: content), the submenu unique ID is
         needed.
+        @param menu_id is the unique menu id of the sub menu to enter.
         @return True on success, False on error; else None
         """
         resp = self.send_cmd('gochild', params=dict(id=menu_id))
@@ -463,11 +476,27 @@ class airmusic(object):
         resp = self.send_cmd('GetSystemInfo')
         return resp['menu']
 
-    def play_fm_favourite(self, favnr):
+    def play_DAB_favourite(self, keynr):
+        """!
+        Start playing a DAB station from the DAB favourites list.
+        The DAB favourites list can be retrieved with get_DAB_hotkeylist().
+        This list shows the stored FM stations, each with their own id.
+        On return:
+         - id (The ID of the menu holding this station),
+         - rt (The status text, eg 'OK').
+        @param keynr is the id of the DAB station to play.
+        @return A dict with the tags id and rt.
+        """
+        # <result><id>75</id><rt>OK</rt></result>
+        resp = self.send_cmd('playDABhotkey', params=dict(key=keynr))
+        return resp['result']
+
+    def play_FM_favourite(self, favnr):
         """!
         Start playing an FM station from the FM favourites list.
         The FM favourites list can be retrieved with get_FM_favourites().
-        This list shows the stored FM stations, each with their own id.
+        That list shows the stored FM stations, each with their own id.
+        The id must be passed to this function to select the FM station.
         On return:
          - the status text, eg 'OK' or 'FAIL'.
         @param favnr is the id of the FM station in the list, value range: 1 - ?.
@@ -526,17 +555,6 @@ class airmusic(object):
         # <result><rt>OK</rt></result>
         resp = self.send_cmd('Sendkey', params=dict(key=keynr))
         return resp['result']
-
-    def raw(self, value):
-        """!
-        Send a raw command.
-        This API handles several commands and their responses. In case a command is not yet
-        implemented, this raw function can be used to send it directly without any handling.
-        @param value is the command (and params, if any) to be send.
-        @return the reply as-is.
-        """
-        resp = self.send_cmd(value)
-        return resp
 
     def stop(self):
         """!
