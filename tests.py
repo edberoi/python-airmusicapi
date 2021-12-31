@@ -24,6 +24,9 @@ am.init(language="en")
 print('Device Name: %s' % am.friendly_name)
 print(json.dumps(am.get_systeminfo(), indent=2))
 
+print("Current volume = {}".format(am.volume))
+print("Current mute = {}".format(am.mute))
+
 hkl = am.get_hotkeylist()
 print("Hotkeylist: {} out of {}:".format(hkl['item_total'], hkl['item_return']))
 for itm in hkl['item']:

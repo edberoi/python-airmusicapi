@@ -175,6 +175,54 @@ class airmusic(object):
 
     log_level = property(get_log_level, set_log_level)
 
+    # mute
+    def get_mute(self):
+        """!
+        Fetch the mute state.
+        @return True if the device is muted, False if not muted.
+        """
+        resp = self.get_background_play_status()
+        return True if resp['mute'] == '1' else False
+
+    def set_mute(self, value):
+        """!
+        Specify mute on or off.
+        The device can be muted or unmuted, while not changing the volume level set.
+        It returns the tags:
+         - vol : to indicate the current volume level.
+         - mute : the mute flag; 0=Off 1=On.
+        @param value True to mute the device, False to unmute.
+        @return a dict holding vol and mute.
+        """
+        resp = self.send_cmd('setvol', params=dict(mute=1 if value else 0))
+        return resp['result']
+
+    mute = property(get_mute, set_mute)
+
+    # volume
+    def get_volume(self):
+        """!
+        Fetch the volume level.
+        @return the volume level (0 .. 15).
+        """
+        resp = self.get_background_play_status()
+        return resp['vol']
+
+    def set_volume(self, value):
+        """!
+        Specify the volume level.
+        The volume of the device can be specified in 16 steps, 0-15.
+        It returns the tags:
+         - vol : to indicate the current volume level.
+         - mute : the mute flag; 0=Off 1=On.
+        @param value is the volume level to set (0 .. 15).
+        @return a dict holding vol and mute.
+        """
+        resp = self.send_cmd('setvol', params=dict(vol=value))
+        return resp['result']
+
+    volume = property(get_volume, set_volume)
+
     # ========================================================================
     # Public methods
     # ========================================================================
@@ -225,6 +273,19 @@ class airmusic(object):
         @return the play status.
         """
         resp = self.send_cmd('background_play_status')
+        return resp['result']
+
+    def get_bluetooth_status(self):
+        """!
+        Get the status of bluetooth.
+        The status value indicates if bluetooth is connected, idle, etc.
+        Returned tags are:
+         - vol : the current volume level
+         - mute : the current mute state (0=Unmuted, 1=Muted)
+         - Status : the bluetooth status value.
+        @return the bluetooth status.
+        """
+        resp = self.send_cmd('GetBTStatus')
         return resp['result']
 
     def get_FM_favourites(self):
@@ -442,35 +503,6 @@ class airmusic(object):
         resp = self.send_cmd('Sendkey', params=dict(key=keynr))
         return resp['result']
 
-    def get_mute(self):
-        """!
-        Fetch the mute state.
-        @return True if the device is muted, False if not muted.
-        """
-        resp = self.get_background_play_status()
-        return True if resp['mute'] == '1' else False
-
-    def set_mute(self, value):
-        """!
-        Specify mute on or off.
-        The device can be muted or unmuted, while not changing the volume level set.
-        It returns the tags:
-         - vol : to indicate the current volume level.
-         - mute : the mute flag; 0=Off 1=On.
-        @param value True to mute the device, False to unmute.
-        @return a dict holding vol and mute.
-        """
-        resp = self.send_cmd('setvol', params=dict(mute=1 if value else 0))
-        return resp['result']
-
-    def get_volume(self):
-        """!
-        Fetch the volume level.
-        @return the volume level (0 .. 15).
-        """
-        resp = self.get_background_play_status()
-        return resp['vol']
-
     def raw(self, value):
         """!
         Send a raw command.
@@ -481,19 +513,6 @@ class airmusic(object):
         """
         resp = self.send_cmd(value)
         return resp
-
-    def set_volume(self, value):
-        """!
-        Specify the volume level.
-        The volume of the device can be specified in 16 steps, 0-15.
-        It returns the tags:
-         - vol : to indicate the current volume level.
-         - mute : the mute flag; 0=Off 1=On.
-        @param value is the volume level to set (0 .. 15).
-        @return a dict holding vol and mute.
-        """
-        resp = self.send_cmd('setvol', params=dict(vol=value))
-        return resp['result']
 
     def stop(self):
         """!
