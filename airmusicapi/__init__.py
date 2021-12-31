@@ -288,6 +288,30 @@ class airmusic(object):
         resp = self.send_cmd('GetBTStatus')
         return resp['result']
 
+    def get_DAB_hotkeylist(self):
+        """!
+        Fetch the DAB list of hotkeys.
+        It is possible to store multiple DAB stations in the favourites list.
+        The first five entries are in the DAB hotkeylist. To fetch the complete list,
+        it is required to query with the 'list' command, i.e. with get_menu().
+        Returned are the following tags:
+         - item_total (The total number of items in the list, i.e. 5),
+         - item_return (The amount of items in the list),
+         - item (repeated (5) times):
+        Each item has the following tags:
+         - id (Unique ID that can be used to play this station),
+         - status ('emptyfile' indicates the entry is not used, 'file' indicates the entry is valid.),
+         - name (Holds the station name, if used. Contains 'empty' or a translation of 'empty' if a
+                 different language is active).
+        @return On success, a dict of favourite stations; On error, a dict {'error': 'reason'}; else None
+        """
+        resp = self.send_cmd('DABhotkeylist')
+        if 'menu' in resp:
+            return resp['menu']
+        if 'result' in resp:
+            return dict(result=resp['result']['rt'])
+        return None
+
     def get_FM_favourites(self):
         """!
         Get the FM favourites.
