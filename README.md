@@ -201,10 +201,12 @@ So far I have 'decoded' the following values for the 'sid' tag:
 |-----|--------------------------|
 |  1  | not playing              |
 |  2  | buffering                |
+|  5  | buffer at 100%             |
 |  6  | playing song/station     |
 |  7  | ending playing song/file |
 |  9  | paused                   |
 | 12  | reading song from file   |
+| 14  | failed to connect   |
 
 ### Example output
 The following XML formatted output was retrieved while I was listening to the SLAM Internet radio station.

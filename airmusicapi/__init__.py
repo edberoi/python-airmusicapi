@@ -58,7 +58,7 @@ class airmusic(object):
            7, 'Ending',
            9, 'Paused',
            12, 'Reading from file',
-          }
+           14, 'failed to connect', }
 
     def __init__(self, device_address, timeout=5):
         """!
@@ -295,14 +295,14 @@ class airmusic(object):
         resp = self.send_cmd('background_play_status')
         return resp['result']
 
-    def get_bluetooth_status(self):
+    def get_BT_status(self):
         """!
         Get the status of bluetooth.
         The status value indicates if bluetooth is connected, idle, etc.
         Returned tags are:
          - vol : the current volume level
          - mute : the current mute state (0=Unmuted, 1=Muted)
-         - Status : the bluetooth status value.
+         - Status : the bluetooth status value. Value 2=??, 3=??, 4=??
         @return the bluetooth status.
         """
         resp = self.send_cmd('GetBTStatus')
@@ -369,6 +369,36 @@ class airmusic(object):
         @return the FM status.
         """
         resp = self.send_cmd('GetFMStatus')
+        return resp['result']
+
+    def set_FM_manualsearch(self, direction):
+        """!
+        Start FM station search.
+        Start scanning the FM frequencies to find another FM station. The direction (Down, Up) needs
+        to be specified.
+        Note that the 'Search' tag retrieved via get_FM_status() will be set to 'TRUE' as long
+        as searching is in progress. Once a station has been found it will contain 'FALSE'.
+        @param direction is the direction to search for the next station, 'down' or 'up'.
+        @return the command status ('OK')
+        """
+        if direction == 'down':
+            direction = 'backword'
+        elif direction == 'up':
+            direction = 'forword'
+        else:
+            return "Error: direction must be 'down' or 'up'."
+        resp = self.send_cmd('SetFMManualsearch', params=dict(direction=direction))
+        return resp['result']
+
+    def set_FM_mode(self, mode):
+        """!
+        Specify FM mono or stereo.
+        While listening to an FM radio station, it is possible to choose between MONO or (automatic)
+        STEREO mode.
+        @param mode is 'mono' to select MONO-mode; 'stereo' to select STEREO-mode.
+        @return the command status ('OK')
+        """
+        resp = self.send_cmd('SetFMMode', params=dict(mode=mode))
         return resp['result']
 
     def get_hotkeylist(self):
@@ -531,23 +561,121 @@ class airmusic(object):
         resp = self.send_cmd('playhotkey', params=dict(key=keynr))
         return resp['result']
 
+    def play_pause(self):
+        """!
+        Play/Pause the current song/station.
+        A song (file) or a station is paused playing or unpaused.
+        On return:
+         - rt (The status text, eg 'OK').
+        @return A dict with the tag rt.
+        """
+        resp = self.send_cmd('PlayOP', params=dict(cmd='PlayPause'))
+        return resp['result']
+
+    def play_remotefile(self, url, name=None):
+        """!
+        Start playing a song from a remote source by means of a URL .
+        The device can connect using the URL to a remote device and play the song as
+        indicated by the URL.
+        To verify if the device can play the URL, just enter that URL in the address bar
+        of a browser. If the browser can play the file, the radio device should be able
+        to do so as well.
+        Example: http://192.168.2.116:8888/local&name=Over_the_Horizon.mp3
+        On the Airmusic Control App it is also possible to record a voice message and to play it
+        directly on the radio device. In that case the URL is pointing to a file and the app
+        also provided the parameter name with value 'Intercom'.
+        Example: http://192.168.2.116:8889/msg.wav&name=Intercom
+        Note: Make sure you navigate to the top level menu using the back() function until it returns ID=1
+        before you start playing remote songs. The device might freeze if you are not at the top level menu.
+        On return:
+         - rt (The status text, eg 'OK').
+        @param url is the URL of the song to play.
+        @param name is None if not specified, holds a string to display on the device.
+        @return A dict with the tag rt.
+        """
+        # <result><rt>OK</rt></result>
+        params = dict(url=url)
+        if name:
+            params.update(dict(name=name))
+        resp = self.send_cmd('LocalPlay', params=params)
+        return resp['result']
+
     def play_station(self, station_id):
         """!
-        Start playing a station based on its unique ID.
-        The unique station ID can be found using the 'get_menu' command. The format is
+        Start playing a song or station based on its unique ID.
+        The unique song or station ID can be found using the 'get_menu' command. The format is
         something like 75_3. This function will request the radio to play the
-        given station ID.
+        given song or station ID.
         Note: It is required to navigate to the menu that holds the station_id. Failure
               to do so will cause the device to hang. A power cycle is needed to get the
               device remote controllable again!
         On return:
          - id (The ID of the menu containing this song/station),
          - rt (The status text, eg 'OK').
-        @param station_id is the unique ID of the station to play.
+        @param station_id is the unique ID of the song / station to play.
         @return A dict with the tags id and rt.
         """
         # <result><id>75</id><rt>OK</rt></result>
         resp = self.send_cmd('play_stn', params=dict(id=station_id))
+        return resp['result']
+
+    def play_url(self, station_id):
+        """!
+        Fetch the URL for the logo of a song or station based on its unique ID.
+        The unique song or station ID can be found using the 'get_menu' command. The format is
+        something like 75_3. This function will request the radio to return the URL of the
+        logo of the given song or station ID.
+        Note: It is required to navigate to the menu that holds the station_id. Failure
+              to do so will cause the device to hang. A power cycle is needed to get the
+              device remote controllable again!
+        On return:
+         - url (The URL to the logo of this song/station),
+        @param station_id is the unique ID of the song / station to play.
+        @return A dict with the tag url.
+        """
+        # <result><url>http://..../logo.jpg</url></result>
+        resp = self.send_cmd('play_url', params=dict(id=station_id))
+        return resp['result']
+
+    def search_station(self, searchstr):
+        """!
+        Search for a station by (part of the) name.
+        When the device is showing a menu of radio stations it is possible to search for a station
+        name by specifying a search string. Any station matching that string will be presented in
+        a search result menu. The unique ID of that result menu is returned, so it can be retrieved
+        with the function get_menu().
+        The proper sequence of actions to perform is:
+          (1) search for the station, eg with 'slam' as search string: search_station('slam')
+          (2) retrieve the menu-id from the result, eg {'id': 100} -> menu-ID is 100.
+          (3) enter the menu, using enter_menu(100)
+          (4) retrieve the results, using get_menu(menu_id=100, start=1, count=250)
+        On return:
+         - id (ID of the result list)
+         - rt (containing the status text, eg 'OK').
+        @param searchstr holds the part of the name to search for.
+        @return A dict with the tags rt and id.
+        """
+        # <result><id>100</id><rt>OK</rt></result>
+        resp = self.send_cmd('searchstn', params=dict(str=searchstr))
+        return resp['result']
+
+    def send_bt_command(self, cmdnr):
+        """!
+        Send a BlueTooth command.
+        The device can send several BlueTooth commands. Each one of them is assigned a
+        number. This function allows to send the given bluetooth command number to the
+        radio device.
+        Possible bluetooth commands are:
+         - 1: ??
+         - 3: ?? connect?
+         - 4: ??
+        On return:
+         - rt (containing the status text, eg 'OK').
+        @param cmdnr is the Bluetooth command numer to execute.
+        @return A dict with the tag rt.
+        """
+        # <result><rt>OK</rt></result>
+        resp = self.send_cmd('BTCMD', params=dict(cmd=cmdnr))
         return resp['result']
 
     def send_rc_key(self, keynr):
@@ -564,6 +692,60 @@ class airmusic(object):
         resp = self.send_cmd('Sendkey', params=dict(key=keynr))
         return resp['result']
 
+    def send_bootlogo(self, url):
+        """!
+        Set the image the device will show when it boots.
+        The moment the device boots it shows an image / logo.
+        This image can be updated by this function.
+        The new image must be indicated by the URL. The size must be fixed to hhh x www.
+        Example: http://192.168.2.116:8889/mylogo.jpg
+        Note that the device will display the new image only at boot due to a power cycle.
+        On return:
+         - rt (containing the status text, eg 'OK').
+        @param url is the URL of the image to download.
+        @return A dict with the tag rt.
+        """
+        # <result><rt>OK</rt></result>
+        resp = self.send_cmd('mylogo', params=dict(url=url))
+        return resp['result']
+
+    def set_favourite(self, song_id, pos):
+        """!
+        Put the given song/station (song_id) on the favourites list on position 'pos'.
+        This function will put the song / station with a unique ID, the combination of
+        the given id and the item, on the favourites list at the given position.
+        For example, when playing a radio station (selected from the menu with ID=87
+        and item 114) the user wants to put this radio station in the favourites list
+        at position 2.
+        After the command has completed, radio station 87_114 will be found on position 2
+        in the hotkeylist.
+        On return:
+         - rt (containing the status text, eg 'OK').
+        @param song_id is the menu ID of the song or station, eg 87_114.
+        @param pos is the position/index in the favourites list to put it in.
+        @return A dict with the tag rt.
+        """
+        # <result><rt>OK</rt></result>
+        if '_' in song_id:
+            menu = song_id.split('_')
+            menu_id = menu[0]
+            menu_item = menu[1]
+        else:
+            return dict(rt='ERR: format error in ID {}. Must follow x_x notation.'.format(song_id))
+        resp = self.send_cmd('setfav', params=dict(menu_id=menu_id, item=menu_item, pos=pos))
+        return resp['result']
+
+    def start_BT_match(self):
+        """!
+        Start matching with another BlueTooth (BT) device.
+        The radio device will start the bluetooth matching proces.
+        On return:
+         - The status text, eg 'OK'.
+        @return A dict with the status value.
+        """
+        resp = self.send_cmd('StartBTMatch')
+        return resp['result']
+
     def stop(self):
         """!
         Stop playing the current song/station.
@@ -574,6 +756,42 @@ class airmusic(object):
         @return A dict with the tag rt.
         """
         resp = self.send_cmd('stop')
+        return resp['result']
+
+    def back_stop(self):
+        """!
+        Stop / start playing the current song/station.
+        A song (file) or a station is stopped or started playing.
+        When stopped, the device will return to the menu holding the song / station.
+        On return:
+         - id (The unique ID of the menu the song/station is listed)
+        @return A dict with the tag id.
+        """
+        resp = self.send_cmd('back_stop')
+        return resp['result']
+
+    def back(self):
+        """!
+        Navigate backwards in the menu.
+        Move one item back (upwards) in the menu.
+        On return:
+         - id (The unique ID of the active menu)
+        @return A dict with the tag id.
+        """
+        resp = self.send_cmd('back')
+        return resp['result']
+
+    def update_software(self):
+        """!
+        Order a software update.
+        If the tag SWUpdate received as result of the init() function indicates 'YES', there
+        might be a software update available. This function starts a software update and returns
+        the upgrade status.
+         - PROCESSING : The upgrade is still in progress.
+         - OK : The upgrade finished.
+        @return The software upgrade status, eg PROCESSING.
+        """
+        resp = self.send_cmd('updatenewsw')
         return resp['result']
 
 
