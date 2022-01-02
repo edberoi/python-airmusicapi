@@ -58,7 +58,7 @@ as xml as well, but also here we have the issue with special characters not bein
 The responses seem to follow a pattern. In most cases the command will return a 'result'
 tag, with nested sublevels of tagged information.
 
-###Example: Start playing a radio station with ID=75_2
+### Example: Start playing a radio station with ID=75_2
 The command to send is **play_stn?id=75_2**.
 The xml-formatted reply, on success, wil be:
 ~~~xml
@@ -67,8 +67,8 @@ The xml-formatted reply, on success, wil be:
 ~~~
 Then the API will return a Python dict, holding the **id** and the **isfav** tagged data.
 
-###Example: Retrieve the hotkeylist
-The are several lists of favourites, eg. for FM, DAB or Internet radio stations.
+### Example: Retrieve the hotkeylist
+There are several lists of favourites, eg. for FM, DAB or Internet radio stations.
 But there is one overall list of favourites. The Infrared Remote has a few numbered buttons to select one from this list directly.
 To retrieve the overall list, command **hotkeylist** must be sent to the device.
 The reply will reveal how many items there are in this list, how many of them are returned in the actual
@@ -88,7 +88,7 @@ The response will look like this (edited for readability):
 ~~~
 There is no 'result' tag. Instead the 'menu' tag holds all tagged data.
 One interesting thing to note is the content of the 'name' tag: **Leeg**.
-While using the **hotkeylist** command, the device responded in the language 'nl' (as instrcuted at the **init** command).
+While using the **hotkeylist** command, the device responded in the language 'nl' (as instructed at the **init** command).
 That is why the content of this name tag is in Dutch. In English, it would contain *Empty*, in German *Leer*, etc.
 Only for this example the Dutch language was selected, but in all other parts of the API description it is assumed
 that the language is English (init?language=en).
@@ -103,7 +103,7 @@ The API itself, on termination (i.e. destruction of the class instance, implemen
 
 I also noticed that the device starts to act strange if it is controlled by more than one application at the time.
 For example, I was using the Airmusic Control App on my phone and at the same time I was trying
-commands in the browser. Same holds when I was running the 'tests.py' sample script and used that App simulateously.
+commands in the browser. Same holds when I was running the 'tests.py' sample script and used that App simultaneously.
 
 The **init** and **exit** commands do not create resp. close a session with the device. Therefore the
 device cannot distinct between commands coming from the Python API or the phone App.
@@ -197,13 +197,14 @@ The **'status'** tag holds a human readable text, in the selected language.
 The **'sid'** tag holds a numeric value and seems to indicate the same as the 'status' tag.
 So far I have 'decoded' the following values for the 'sid' tag:
 
-| sid | Meaning |
-|------|---------------|
-| 1    |not playing |
-| 6    | playing song/station|
-| 7    | ending playing song/file |
-| 9    |paused |
-| 12 | reading song from file |
+| sid | Meaning                  |
+|-----|--------------------------|
+|  1  | not playing              |
+|  2  | buffering                |
+|  6  | playing song/station     |
+|  7  | ending playing song/file |
+|  9  | paused                   |
+| 12  | reading song from file   |
 
 ### Example output
 The following XML formatted output was retrieved while I was listening to the SLAM Internet radio station.
@@ -227,7 +228,7 @@ Note: Omitted are the xml version and result tags. This output is what tags **ge
 # Authentication
 The device requires HTML Basic Authentication, but so far it looks like the user and password are hardcoded.
 As the credentials are base64 encrypted data, it is easy to decode them.
-See RFC7617 for more details on Basic Authentication, https://datatracker.ietf.org/doc/html/rfc7617
+> See RFC7617 for more details on Basic Authentication, https://datatracker.ietf.org/doc/html/rfc7617
 
 Wireshark traces showed the following text in the HTML Authorization header: **c3UzZzRnbzZzazc6amkzOTQ1NHh1L14=**
 Decoding it:

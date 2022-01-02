@@ -52,6 +52,14 @@ class airmusic(object):
     KEY_WPS = 111  # Start WPS mode.
     KEY_NEXTFAV = 112  # Go to the next station in the favourites list.
 
+    SID = {1, 'Stopped',
+           2, 'Buffering',
+           6, 'Playing',
+           7, 'Ending',
+           9, 'Paused',
+           12, 'Reading from file',
+          }
+
     def __init__(self, device_address, timeout=5):
         """!
         Constructor of the Airmusic API class.
@@ -132,7 +140,7 @@ class airmusic(object):
         if result.ok:
             if 'html' in result.text:  # Some commands, like set_dname, return an HTML page.
                 return dict(result='OK')
-            return xmltodict.parse(result.text)  # Will fail if a tag contains an &, eg combining two artist names.
+            return xmltodict.parse(make_xml(result.text))
         logging.error("Error in request: {} : {}".format(result.status_code, result.reason))
         return None
 
@@ -567,3 +575,16 @@ class airmusic(object):
         """
         resp = self.send_cmd('stop')
         return resp['result']
+
+
+def make_xml(text):
+    """!
+    Convert malformed XML into proper XML.
+    The XML standard requires special characters, like an ampersand, to be escaped.
+    The Airmusic implementation of XML does not escape such characters.
+    Therefore, this function will replace special characters in the given text with
+    their escaped counterparts.
+    @param text is the XML-alike text, potentially with non-escaped characters.
+    @return the escaped text.
+    """
+    return "{}".format(text.replace('&', '&amp;'))
